@@ -1,14 +1,47 @@
 import { Zap, Shield, CheckCircle, Instagram, MapPin, LogOut, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
+interface Product {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  slug: string;
+  order_index: number;
+  is_active: boolean;
+}
 
 export function Home() {
   const [showAllProducts, setShowAllProducts] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const displayedProducts = showAllProducts ? products : products.slice(0, 3);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -17,7 +50,7 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="fixed top-0 left-0 right-0 z-50 py-4">
+      <header className="fixed top-0 left-0 right-0 z-50 py-4" style={{ animation: 'slideDown 0.5s ease-out' }}>
         <nav className="container mx-auto px-6">
           <div className="bg-gradient-to-r from-[#3d4f5c] to-[#5a7280] bg-opacity-90 backdrop-blur-sm text-white rounded-2xl shadow-lg px-6 py-4 flex items-center justify-between" style={{backgroundColor: 'rgba(61, 79, 92, 0.9)'}}>
             <div className="flex items-center gap-3">
@@ -53,7 +86,7 @@ export function Home() {
 
       <section className="container mx-auto px-6 py-32 mt-20 relative">
         <div className="absolute inset-0 bg-gradient-to-r from-slate-400/30 via-blue-gray-400/20 to-transparent rounded-3xl"></div>
-        <div className="max-w-3xl relative z-10">
+        <div className="max-w-3xl relative z-10" style={{ animation: 'fadeInUp 0.8s ease-out' }}>
           <h1 className="text-5xl font-bold text-[#3d4f5c] mb-6">
             Precision Manufacturing in Stainless Steel
           </h1>
@@ -77,23 +110,36 @@ export function Home() {
         }}></div>
         <div className="container mx-auto px-6 relative z-10">
           <h2 className="text-3xl font-bold text-[#3d4f5c] mb-12 text-center">Our Work</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayedProducts.map(product => (
-              <Link key={product.id} to={`/product/${product.slug}`} className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-700/80 to-slate-900/80 backdrop-blur-xl rounded-lg transform transition-transform group-hover:scale-105"></div>
-                <div className="relative bg-white/90 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition">
-                  <img src={product.imageUrl} alt={product.title} className="w-full h-64 object-cover" />
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-[#3d4f5c] mb-2">{product.title}</h3>
-                    <p className="text-gray-600 line-clamp-3">{product.description}</p>
-                    <div className="mt-4 text-[#3d4f5c] font-semibold group-hover:underline">
-                      Learn More →
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#3d4f5c]"></div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {displayedProducts.map((product, index) => (
+                <Link
+                  key={product.id}
+                  to={`/product/${product.slug}`}
+                  className="relative group"
+                  style={{
+                    animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-700/80 to-slate-900/80 backdrop-blur-xl rounded-lg transform transition-transform group-hover:scale-105"></div>
+                  <div className="relative bg-white/90 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition">
+                    <img src={product.image_url} alt={product.title} className="w-full h-64 object-cover" />
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-[#3d4f5c] mb-2">{product.title}</h3>
+                      <p className="text-gray-600 line-clamp-3">{product.description}</p>
+                      <div className="mt-4 text-[#3d4f5c] font-semibold group-hover:underline">
+                        Learn More →
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
           {!showAllProducts && (
             <div className="text-center mt-12">
               <button

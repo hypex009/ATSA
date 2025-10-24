@@ -1,15 +1,73 @@
 import { useParams, Link } from 'react-router-dom';
-import { products } from '../data/products';
 import { ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+
+interface Product {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  slug: string;
+  order_index: number;
+  is_active: boolean;
+}
 
 export function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const product = products.find(p => p.slug === slug);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (slug) {
+      fetchProduct();
+    }
+  }, [slug]);
+
+  const fetchProduct = async () => {
+    try {
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (productError) throw productError;
+      setProduct(productData);
+
+      if (productData) {
+        const { data: relatedData, error: relatedError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .neq('id', productData.id)
+          .order('order_index', { ascending: true })
+          .limit(4);
+
+        if (relatedError) throw relatedError;
+        setRelatedProducts(relatedData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#3d4f5c]"></div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center" style={{ animation: 'fadeIn 0.5s ease-out' }}>
           <h1 className="text-4xl font-bold text-[#3d4f5c] mb-4">Product Not Found</h1>
           <Link to="/" className="text-[#3d4f5c] hover:underline">
             Return to Home
@@ -35,17 +93,17 @@ export function ProductDetail() {
 
       <main className="container mx-auto px-6 pt-32 pb-20">
         <div className="grid md:grid-cols-2 gap-12 items-start">
-          <div className="relative">
+          <div className="relative" style={{ animation: 'fadeInLeft 0.6s ease-out' }}>
             <div className="sticky top-32">
               <img
-                src={product.imageUrl}
+                src={product.image_url}
                 alt={product.title}
                 className="w-full h-auto rounded-2xl shadow-2xl"
               />
             </div>
           </div>
 
-          <div>
+          <div style={{ animation: 'fadeInRight 0.6s ease-out' }}>
             <h1 className="text-4xl md:text-5xl font-bold text-[#3d4f5c] mb-6">
               {product.title}
             </h1>
@@ -107,29 +165,29 @@ export function ProductDetail() {
             Other Products
           </h2>
           <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products
-              .filter(p => p.id !== product.id)
-              .slice(0, 4)
-              .map(relatedProduct => (
-                <Link
-                  key={relatedProduct.id}
-                  to={`/product/${relatedProduct.slug}`}
-                  className="group"
-                >
-                  <div className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition">
-                    <img
-                      src={relatedProduct.imageUrl}
-                      alt={relatedProduct.title}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-4">
-                      <h3 className="font-bold text-[#3d4f5c] group-hover:text-[#2d3f4c] transition">
-                        {relatedProduct.title}
-                      </h3>
-                    </div>
+            {relatedProducts.map((relatedProduct, index) => (
+              <Link
+                key={relatedProduct.id}
+                to={`/product/${relatedProduct.slug}`}
+                className="group"
+                style={{
+                  animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                }}
+              >
+                <div className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition">
+                  <img
+                    src={relatedProduct.image_url}
+                    alt={relatedProduct.title}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="p-4">
+                    <h3 className="font-bold text-[#3d4f5c] group-hover:text-[#2d3f4c] transition">
+                      {relatedProduct.title}
+                    </h3>
                   </div>
-                </Link>
-              ))}
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       </main>
